@@ -297,6 +297,23 @@ function renderDurationPicker() {
   });
 }
 
+// Whether finishing the current detail means the RSO is about to move the
+// line to a different discipline — either this is the last match/practice
+// in the course of fire, or the next one is at a different distance or
+// start position. Shared by the on-screen end-of-match display and by
+// goToNextDetail's command sequence, so they always agree.
+function getEndOfDetailInfo() {
+  const comp = runner.competition;
+  const finishedDetail = runner.detail;
+  const isLastDetail = currentDetailIndex + 1 >= comp.details.length;
+  const nextDetail = isLastDetail ? null : comp.details[currentDetailIndex + 1];
+  const disciplineChanging = isLastDetail || (
+    nextDetail.distance !== finishedDetail.distance ||
+    nextDetail.startPosition !== finishedDetail.startPosition
+  );
+  return { isLastDetail, nextDetail, disciplineChanging };
+}
+
 function updateRunnerProgress() {
   const bits = [];
   if (runner.totalAttempts > 1) bits.push(`Attempt ${runner.attemptIndex + 1} of ${runner.totalAttempts}`);
@@ -371,13 +388,25 @@ function setRunnerPhaseUI() {
       setStartButton("BEGIN", true);
       break;
     }
-    case "detail-complete":
-      statusEl.textContent = "COMPLETE";
+    case "detail-complete": {
+      // The stage is over — BEGIN is disabled here on purpose so the RSO
+      // can't accidentally re-fire the same stage; Next is the only way
+      // forward (Repeat is still available if they deliberately want to
+      // redo it).
+      const { disciplineChanging } = getEndOfDetailInfo();
       statusEl.classList.add("stop");
-      clockEl.textContent = "DONE";
-      subEl.textContent = "Tap Next to continue, or Repeat to run again";
-      setStartButton("BEGIN", true);
+      if (disciplineChanging) {
+        statusEl.textContent = "CEASE FIRE";
+        clockEl.textContent = "CLEAR";
+        subEl.textContent = "Unload and show clear. Once RSOs confirm all firearms are safe, tap Next.";
+      } else {
+        statusEl.textContent = "COMPLETE";
+        clockEl.textContent = "DONE";
+        subEl.textContent = "Tap Next to continue, or Repeat to run again";
+      }
+      setStartButton("BEGIN", false);
       break;
+    }
   }
 
   $("runner-info-panel").classList.toggle("visible", !!runner.infoVisible && (runner.phase === "ready"));
@@ -535,64 +564,33 @@ function goToNextDetail() {
   WakeLock.release();
   const comp = runner.competition;
   const finishedDetail = runner.detail;
-  const isLastDetail = currentDetailIndex + 1 >= comp.details.length;
-  const nextDetail = isLastDetail ? null : comp.details[currentDetailIndex + 1];
+  // The runner screen itself already showed "CEASE FIRE — unload and show
+  // clear" (see the detail-complete case in setRunnerPhaseUI) before Next
+  // became the only enabled action, so there's no need to show that again
+  // here as a modal — go straight to whatever comes after it.
+  const { isLastDetail, nextDetail, disciplineChanging } = getEndOfDetailInfo();
 
-  // A full "cease fire, unload and show clear" is required — not just a pause
-  // between strings of the same match (that's just a reload, handled in the
-  // "unit-complete" runner phase) — whenever the RSO is about to move on to a
-  // different discipline: either this was the last match/practice in the
-  // course of fire (about to switch to a different competition entirely), or
-  // the next match/practice uses a different distance or start position.
-  const disciplineChanging = isLastDetail || (
-    nextDetail.distance !== finishedDetail.distance ||
-    nextDetail.startPosition !== finishedDetail.startPosition
-  );
-
-  const openNext = () => {
+  const announceMove = () => {
     if (isLastDetail) {
-      showModal("Competition Complete", "That concludes your competition.", "Back to course", () => {
+      showModal("The Range is Safe", "That concludes your competition.", "Back to course", () => {
         showScreen("screen-competition");
       });
+    } else if (disciplineChanging) {
+      showModal(
+        "The Range is Safe",
+        `You may move to <b>${esc(nextDetail.distance || "the next position")}</b> for <b>${esc(detailLabel(nextDetail))}</b>.`,
+        "Continue",
+        () => openRunner(comp.id, currentDetailIndex + 1)
+      );
     } else {
       openRunner(comp.id, currentDetailIndex + 1);
     }
   };
 
-  // Once firearms are confirmed safe (and any scoring/target-change at the
-  // current position is done), the RSO moves shooters on to the next stage —
-  // unless this was the last match, in which case the competition is simply
-  // over and there's no "next stage" to send anyone to.
-  const announceMove = () => {
-    if (disciplineChanging && !isLastDetail) {
-      showModal(
-        "The Range is Safe",
-        `You may move to <b>${esc(nextDetail.distance || "the next position")}</b> for <b>${esc(detailLabel(nextDetail))}</b>.`,
-        "Continue",
-        openNext
-      );
-    } else {
-      openNext();
-    }
-  };
-
-  const scoreAndChange = () => {
-    if (finishedDetail.scoreChangeAfter) {
-      showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", announceMove);
-    } else {
-      announceMove();
-    }
-  };
-
-  if (disciplineChanging) {
-    showModal(
-      "Cease Fire",
-      "Unload and show clear.<br><br>Once RSOs confirm all firearms are safe, continue.",
-      "Continue",
-      scoreAndChange
-    );
+  if (finishedDetail.scoreChangeAfter) {
+    showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", announceMove);
   } else {
-    scoreAndChange();
+    announceMove();
   }
 }
 

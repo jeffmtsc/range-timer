@@ -113,6 +113,13 @@ body.sunlight-mode .duration-picker button.selected { color: #ffffff; }
   flex: 1;
 }
 .btn-start.stop { background: var(--red); color: #2a0606; }
+.btn-start:disabled {
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  cursor: not-allowed;
+}
+.btn-start:disabled:active { filter: none; }
 
 /* ---------- Home / library ---------- */
 .card-list { display: flex; flex-direction: column; gap: 10px; }
