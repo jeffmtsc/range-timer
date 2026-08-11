@@ -446,13 +446,13 @@ function setRunnerPhaseUI() {
       setStartButton("RUNNING", false);
       break;
     case "expose":
-      statusEl.textContent = "TARGET UP";
+      statusEl.textContent = "SHOOT";
       statusEl.classList.add("live");
       subEl.textContent = `Appearance ${runner.appearanceIndex + 1} of ${runner.detail.timing.appearancesPerString}`;
       setStartButton("RUNNING", false);
       break;
     case "hold":
-      statusEl.textContent = "TARGET DOWN";
+      statusEl.textContent = "PAUSE";
       subEl.textContent = "Resetting…";
       setStartButton("RUNNING", false);
       break;
