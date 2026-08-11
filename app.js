@@ -198,8 +198,12 @@ function describeAppearancesOneString(t) {
   return `${t.appearancesPerString} appearance${t.appearancesPerString === 1 ? "" : "s"}, each exposed for ${t.exposureSeconds} second${t.exposureSeconds === 1 ? "" : "s"} with ${t.intervalSeconds} second interval${t.intervalSeconds === 1 ? "" : "s"} between, firing ${t.shotsPerAppearance} shot${t.shotsPerAppearance === 1 ? "" : "s"} per appearance`;
 }
 
+function detailLabel(detail) {
+  return detail.practice ? `${detail.match} — ${detail.practice}` : detail.match;
+}
+
 function generateIntroLine(comp, detail, ctx) {
-  const label = detail.practice ? `${detail.match} — ${detail.practice}` : detail.match;
+  const label = detailLabel(detail);
   let qualifier = "";
   if (detail.timing.type === "appearances" && ctx.totalStrings > 1) {
     qualifier = `, String ${ctx.stringIndex + 1} of ${ctx.totalStrings}`;
@@ -256,8 +260,7 @@ function openRunner(compId, detailIndex) {
   runner.phaseEndTime = null;
   runner.infoVisible = true;
 
-  const label = detail.practice ? `${detail.match} — ${detail.practice}` : detail.match;
-  $("runner-match").textContent = label;
+  $("runner-match").textContent = detailLabel(detail);
   $("info-distance").textContent = detail.distance || "—";
   $("info-position").textContent = detail.startPosition || "—";
   $("info-description").textContent = detail.description || "—";
@@ -356,12 +359,15 @@ function setRunnerPhaseUI() {
       setStartButton("RUNNING", false);
       break;
     case "unit-complete": {
+      // More strings/attempts remain within this SAME match — the RSO stays
+      // put at the same distance/position, so this is just a reload pause,
+      // not a full cease-fire-and-clear (that only happens at the end of
+      // the whole match, in goToNextDetail).
       const moreStrings = runner.detail.timing.type === "appearances" && runner.stringIndex < runner.totalStrings;
-      const moreAttempts = !moreStrings && runner.attemptIndex < runner.totalAttempts - 1 + (runner.detail.timing.type === "appearances" ? 0 : 0);
-      statusEl.textContent = "CEASE FIRE";
+      statusEl.textContent = moreStrings ? "RELOAD" : "CEASE FIRE";
       statusEl.classList.add("stop");
       clockEl.textContent = "DONE";
-      subEl.textContent = moreStrings ? "String complete — tap BEGIN for the next string" : (runner.attemptIndex + 1 < runner.totalAttempts ? "Attempt complete — tap BEGIN for the next attempt" : "Detail complete");
+      subEl.textContent = moreStrings ? "String complete — reload, then tap BEGIN for the next string" : (runner.attemptIndex + 1 < runner.totalAttempts ? "Attempt complete — tap BEGIN for the next attempt" : "Detail complete");
       setStartButton("BEGIN", true);
       break;
     }
@@ -533,8 +539,9 @@ function goToNextDetail() {
   const nextDetail = isLastDetail ? null : comp.details[currentDetailIndex + 1];
 
   // A full "cease fire, unload and show clear" is required — not just a pause
-  // between strings of the same match — whenever the RSO is about to move on
-  // to a different discipline: either this was the last match/practice in the
+  // between strings of the same match (that's just a reload, handled in the
+  // "unit-complete" runner phase) — whenever the RSO is about to move on to a
+  // different discipline: either this was the last match/practice in the
   // course of fire (about to switch to a different competition entirely), or
   // the next match/practice uses a different distance or start position.
   const disciplineChanging = isLastDetail || (
@@ -542,28 +549,50 @@ function goToNextDetail() {
     nextDetail.startPosition !== finishedDetail.startPosition
   );
 
-  const proceed = () => {
-    if (!isLastDetail) {
-      openRunner(comp.id, currentDetailIndex + 1);
-    } else {
-      showModal("Course of Fire Complete", `You've reached the end of <b>${esc(comp.name)}</b>.`, "Back to course", () => {
+  const openNext = () => {
+    if (isLastDetail) {
+      showModal("Competition Complete", "That concludes your competition.", "Back to course", () => {
         showScreen("screen-competition");
       });
+    } else {
+      openRunner(comp.id, currentDetailIndex + 1);
     }
   };
 
-  const afterCeaseFire = () => {
-    if (finishedDetail.scoreChangeAfter) {
-      showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", proceed);
+  // Once firearms are confirmed safe (and any scoring/target-change at the
+  // current position is done), the RSO moves shooters on to the next stage —
+  // unless this was the last match, in which case the competition is simply
+  // over and there's no "next stage" to send anyone to.
+  const announceMove = () => {
+    if (disciplineChanging && !isLastDetail) {
+      showModal(
+        "The Range is Safe",
+        `You may move to <b>${esc(nextDetail.distance || "the next position")}</b> for <b>${esc(detailLabel(nextDetail))}</b>.`,
+        "Continue",
+        openNext
+      );
     } else {
-      proceed();
+      openNext();
+    }
+  };
+
+  const scoreAndChange = () => {
+    if (finishedDetail.scoreChangeAfter) {
+      showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", announceMove);
+    } else {
+      announceMove();
     }
   };
 
   if (disciplineChanging) {
-    showModal("Cease Fire", "Unload and show clear.", "Continue", afterCeaseFire);
+    showModal(
+      "Cease Fire",
+      "Unload and show clear.<br><br>Once RSOs confirm all firearms are safe, continue.",
+      "Continue",
+      scoreAndChange
+    );
   } else {
-    afterCeaseFire();
+    scoreAndChange();
   }
 }
 
