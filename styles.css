@@ -54,6 +54,25 @@ body.sunlight-mode .duration-picker button.selected { color: #ffffff; }
 }
 .screen.active { display: flex; }
 
+/* Faint MTSC crest watermark behind every screen's content. A negative
+   z-index child of `.screen` (which is already position:fixed, so it's the
+   nearest stacking-context root) paints above that screen's own background
+   but below all of its normal-flow children — including screen-runner's
+   solid background — so this shows through consistently everywhere without
+   needing every screen to be individually transparent. */
+.screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url("icon-512.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(55vw, 55vh);
+  opacity: 0.045;
+  pointer-events: none;
+}
+
 .topbar {
   display: flex;
   align-items: center;
