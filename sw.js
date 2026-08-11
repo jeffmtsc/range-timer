@@ -2,7 +2,7 @@
    offline once it has been loaded (and thus installed) once. Bump CACHE_NAME
    whenever app files change so returning users pick up the update. */
 
-const CACHE_NAME = "range-timer-v8";
+const CACHE_NAME = "range-timer-v9";
 const APP_SHELL = [
   "./",
   "./index.html",

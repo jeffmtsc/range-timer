@@ -389,25 +389,28 @@ function setRunnerPhaseUI() {
       break;
     }
     case "detail-complete": {
-      // The stage is over — BEGIN is disabled here on purpose so the RSO
-      // can't accidentally re-fire the same stage; Next is the only way
-      // forward (Repeat is still available if they deliberately want to
-      // redo it).
+      // The stage is over and there's nothing further to fire in it — this
+      // always calls for a cease fire the instant the timer runs out, never
+      // a plain "Done". BEGIN is disabled here on purpose so the RSO can't
+      // accidentally re-fire the same stage; Next is the only way forward
+      // (Repeat is still available if they deliberately want to redo it).
       const { disciplineChanging } = getEndOfDetailInfo();
+      statusEl.textContent = "CEASE FIRE";
       statusEl.classList.add("stop");
-      if (disciplineChanging) {
-        statusEl.textContent = "CEASE FIRE";
-        clockEl.textContent = "CLEAR";
-        subEl.textContent = "Unload and show clear. Once RSOs confirm all firearms are safe, tap Next.";
-      } else {
-        statusEl.textContent = "COMPLETE";
-        clockEl.textContent = "DONE";
-        subEl.textContent = "Tap Next to continue, or Repeat to run again";
-      }
+      clockEl.textContent = "CLEAR";
+      subEl.textContent = disciplineChanging
+        ? "Unload and show clear. Once RSOs confirm all firearms are safe, tap Next."
+        : "Unload and show clear. Once firearms are safe, tap Next to continue (or Repeat to run again).";
       setStartButton("BEGIN", false);
       break;
     }
   }
+
+  // "Next" only ever means "the stage that just ended is truly over, move on
+  // to the next one" — it must never be actionable mid-stage (which would
+  // abandon whatever's running) or at any point that isn't detail-complete,
+  // so it can never send the RSO back into the stage they just finished.
+  $("btn-runner-next").disabled = runner.phase !== "detail-complete";
 
   $("runner-info-panel").classList.toggle("visible", !!runner.infoVisible && (runner.phase === "ready"));
 }
@@ -560,6 +563,12 @@ function handleRepeat() {
 }
 
 function goToNextDetail() {
+  // Belt-and-braces: Next is only ever meant to fire once the stage that
+  // was running has genuinely finished. The button itself is disabled
+  // outside "detail-complete" (see setRunnerPhaseUI), but guard here too so
+  // nothing can advance — or worse, treat an in-progress stage as finished
+  // and skip/replay it — from any other phase.
+  if (runner.phase !== "detail-complete") return;
   cancelToken(runner.token);
   WakeLock.release();
   const comp = runner.competition;
