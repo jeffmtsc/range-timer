@@ -241,11 +241,41 @@ function generateIntroLine(comp, detail, ctx) {
   return `This is ${label}${qualifier} of the ${comp.name}${distancePart}. ${sentence}`;
 }
 
+// For a second (or later) string/attempt within the same match — the RSO
+// never left this position, so there's no need to re-explain the course of
+// fire or re-run "Do you understand?" / "Eyes & Ears, going Live" again.
+// Rewrites "With 6 rounds, load and make ready!" into "With a further 6
+// rounds, load and make ready!" (falling back to a generic phrase when the
+// round count isn't a plain number, e.g. "the required number of rounds").
+function repeatLoadCommandLine(loadLine) {
+  if (!loadLine) return null;
+  const m = loadLine.match(/(\d+|the required number of)\s+rounds,\s*(load[\s\S]*)/i);
+  if (!m) return loadLine;
+  const qty = /^\d+$/.test(m[1]) ? `${m[1]} rounds` : "a further supply of rounds";
+  const prefix = /^\d+$/.test(m[1]) ? "With a further" : "With";
+  return `${prefix} ${qty}, ${m[2]}`;
+}
+
 function buildBriefLines(comp, detail, ctx) {
+  const commands = comp.rangeCommands && comp.rangeCommands.length ? comp.rangeCommands : ["Is the line ready?", "The line is ready! Standby!"];
+  const loadIndex = commands.findIndex(l => /load/i.test(l));
+
+  if (ctx.isRepeat) {
+    // Same position, same match — skip straight from the reload pause to
+    // the load command (worded as "a further N rounds") and whatever
+    // ready/standby commands follow it, instead of the full briefing.
+    const lines = [];
+    const loadLineText = detail.loadCommand || (loadIndex >= 0 ? commands[loadIndex] : "");
+    const repeatLoad = repeatLoadCommandLine(loadLineText);
+    if (repeatLoad) lines.push(repeatLoad);
+    const afterLoad = loadIndex >= 0 ? commands.slice(loadIndex + 1) : commands;
+    afterLoad.forEach(line => lines.push(line));
+    return lines;
+  }
+
   const lines = [];
   lines.push(generateIntroLine(comp, detail, ctx));
   if (detail.startPosition) lines.push(`Start position: ${detail.startPosition}.`);
-  const commands = comp.rangeCommands && comp.rangeCommands.length ? comp.rangeCommands : ["Is the line ready?", "The line is ready! Standby!"];
   commands.forEach(line => {
     if (detail.loadCommand && /load/i.test(line)) {
       lines.push(detail.loadCommand);
@@ -492,12 +522,17 @@ function tickClock() {
 
 function beginUnit() {
   const comp = runner.competition, detail = runner.detail;
+  // A second (or later) string within a multi-string match, or a second (or
+  // later) repeat attempt, means the RSO never left this position — use the
+  // abbreviated "further rounds" re-brief instead of the full script.
+  const isRepeat = runner.stringIndex > 0 || runner.attemptIndex > 0;
   runner.briefLines = buildBriefLines(comp, detail, {
     attemptIndex: runner.attemptIndex,
     totalAttempts: runner.totalAttempts,
     stringIndex: runner.stringIndex,
     totalStrings: runner.totalStrings,
-    selectedSeconds: runner.selectedSeconds
+    selectedSeconds: runner.selectedSeconds,
+    isRepeat
   });
   runner.briefIndex = 0;
   runner.phase = "brief";
