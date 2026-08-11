@@ -529,8 +529,21 @@ function goToNextDetail() {
   WakeLock.release();
   const comp = runner.competition;
   const finishedDetail = runner.detail;
+  const isLastDetail = currentDetailIndex + 1 >= comp.details.length;
+  const nextDetail = isLastDetail ? null : comp.details[currentDetailIndex + 1];
+
+  // A full "cease fire, unload and show clear" is required — not just a pause
+  // between strings of the same match — whenever the RSO is about to move on
+  // to a different discipline: either this was the last match/practice in the
+  // course of fire (about to switch to a different competition entirely), or
+  // the next match/practice uses a different distance or start position.
+  const disciplineChanging = isLastDetail || (
+    nextDetail.distance !== finishedDetail.distance ||
+    nextDetail.startPosition !== finishedDetail.startPosition
+  );
+
   const proceed = () => {
-    if (currentDetailIndex + 1 < comp.details.length) {
+    if (!isLastDetail) {
       openRunner(comp.id, currentDetailIndex + 1);
     } else {
       showModal("Course of Fire Complete", `You've reached the end of <b>${esc(comp.name)}</b>.`, "Back to course", () => {
@@ -538,10 +551,19 @@ function goToNextDetail() {
       });
     }
   };
-  if (finishedDetail.scoreChangeAfter) {
-    showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", proceed);
+
+  const afterCeaseFire = () => {
+    if (finishedDetail.scoreChangeAfter) {
+      showModal("Score & Change Targets", "Score and change targets, then continue when ready.", "Continue", proceed);
+    } else {
+      proceed();
+    }
+  };
+
+  if (disciplineChanging) {
+    showModal("Cease Fire", "Unload and show clear.", "Continue", afterCeaseFire);
   } else {
-    proceed();
+    afterCeaseFire();
   }
 }
 
