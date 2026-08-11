@@ -177,12 +177,24 @@ function renderCompetitionScreen() {
   $("btn-add-detail").onclick = () => openDetailEditor(comp.id, null);
 }
 
+// Details with more than one duration option (e.g. GRSB 20s / GRCF 30s) are
+// not "pick one" alternatives — both are shot at the same time, the longer
+// one starting on the standby beep and the shorter one starting later on a
+// second beep, so every option finishes together on the cease-fire beep.
+function isDualStartTiming(t) {
+  return t && t.type === "single" && t.durationOptions && t.durationOptions.length > 1;
+}
+function sortedDurationOptions(t) {
+  return [...t.durationOptions].sort((a, b) => b.seconds - a.seconds);
+}
+
 function summarizeTiming(d) {
   const t = d.timing;
   if (!t) return "";
   if (t.type === "single") {
     const opts = (t.durationOptions || []).map(o => `${o.label}: ${formatMinSec(o.seconds)}`).join(" / ");
-    return (t.isSighters ? "Sighters — " : "") + opts + (d.repeatCount > 1 ? ` (x${d.repeatCount})` : "");
+    const staggerNote = isDualStartTiming(t) ? " (staggered start, finish together)" : "";
+    return (t.isSighters ? "Sighters — " : "") + opts + staggerNote + (d.repeatCount > 1 ? ` (x${d.repeatCount})` : "");
   }
   if (t.type === "appearances") {
     const strings = t.strings > 1 ? `${t.strings} strings × ` : "";
@@ -213,6 +225,13 @@ function generateIntroLine(comp, detail, ctx) {
   let sentence;
   if (detail.timing.type === "appearances") {
     sentence = `You will fire ${describeAppearancesOneString(detail.timing)}.`;
+  } else if (isDualStartTiming(detail.timing)) {
+    const [longer, shorter] = sortedDurationOptions(detail.timing);
+    const gap = longer.seconds - shorter.seconds;
+    sentence = `${longer.label} shooters start on the first beep, with ${formatMinSec(longer.seconds)} to fire. `
+      + `${shorter.label} shooters start ${formatMinSec(gap)} later on a second beep, with ${formatMinSec(shorter.seconds)} to fire. `
+      + `Both finish together on the cease-fire signal.`
+      + (detail.description ? ` ${detail.description}.` : "");
   } else if (detail.timing.isSighters) {
     sentence = `You will have ${formatMinSec(ctx.selectedSeconds)} of unlimited sighting fire.`;
   } else {
@@ -255,7 +274,13 @@ function openRunner(compId, detailIndex) {
   runner.totalAttempts = detail.repeatCount || 1;
   runner.stringIndex = 0;
   runner.totalStrings = detail.timing.type === "appearances" ? (detail.timing.strings || 1) : 1;
-  runner.selectedSeconds = detail.timing.type === "single" ? (detail.timing.durationOptions[0] ? detail.timing.durationOptions[0].seconds : 30) : null;
+  // For dual-start details (e.g. GRSB/GRCF), selectedSeconds represents the
+  // total time until the shared cease-fire beep — i.e. the longer option —
+  // since both durations run together rather than being a pick-one choice.
+  runner.selectedSeconds = detail.timing.type === "single"
+    ? (isDualStartTiming(detail.timing) ? sortedDurationOptions(detail.timing)[0].seconds
+      : (detail.timing.durationOptions[0] ? detail.timing.durationOptions[0].seconds : 30))
+    : null;
   runner.phase = "ready";
   runner.phaseEndTime = null;
   runner.infoVisible = true;
@@ -283,6 +308,24 @@ function renderDurationPicker() {
   container.innerHTML = "";
   const t = runner.detail.timing;
   if (t.type !== "single" || !t.durationOptions || t.durationOptions.length <= 1) return;
+
+  if (isDualStartTiming(t)) {
+    // Not a pick-one choice — both options are shot together with a
+    // staggered start, so just show what each one does, non-interactively.
+    const [longer, shorter] = sortedDurationOptions(t);
+    const gap = longer.seconds - shorter.seconds;
+    [
+      { text: `${longer.label} — starts now (${formatMinSec(longer.seconds)})` },
+      { text: `${shorter.label} — starts ${formatMinSec(gap)} later (${formatMinSec(shorter.seconds)})` }
+    ].forEach(chip => {
+      const div = document.createElement("div");
+      div.className = "duration-chip";
+      div.textContent = chip.text;
+      container.appendChild(div);
+    });
+    return;
+  }
+
   t.durationOptions.forEach(opt => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -341,7 +384,9 @@ function setRunnerPhaseUI() {
       clockEl.textContent = runner.detail.timing.type === "appearances"
         ? `${runner.detail.timing.appearancesPerString}×${runner.detail.timing.exposureSeconds}s`
         : formatMinSec(runner.selectedSeconds);
-      subEl.textContent = "Tap BEGIN to start the RSO briefing";
+      subEl.textContent = isDualStartTiming(runner.detail.timing)
+        ? "Staggered start — see below. Tap BEGIN to start the RSO briefing"
+        : "Tap BEGIN to start the RSO briefing";
       setStartButton("BEGIN", true);
       break;
     case "brief":
@@ -361,7 +406,13 @@ function setRunnerPhaseUI() {
     case "live":
       statusEl.textContent = "LIVE";
       statusEl.classList.add("live");
-      subEl.textContent = runner.detail.description || "";
+      if (isDualStartTiming(runner.detail.timing)) {
+        const [longer, shorter] = sortedDurationOptions(runner.detail.timing);
+        const gap = longer.seconds - shorter.seconds;
+        subEl.textContent = `${longer.label} running now — ${shorter.label} starts in ${formatMinSec(gap)} on a second beep`;
+      } else {
+        subEl.textContent = runner.detail.description || "";
+      }
       setStartButton("RUNNING", false);
       break;
     case "expose":
@@ -483,6 +534,39 @@ async function startStandby() {
 async function runUnitBody(token) {
   const detail = runner.detail;
   const t = detail.timing;
+  if (t.type === "single" && isDualStartTiming(t)) {
+    // Staggered dual start (e.g. GRSB/GRCF): the standby beep that already
+    // fired starts the longest-duration group; each shorter option gets its
+    // own start beep later, timed so every group finishes together on the
+    // single cease-fire beep at the end.
+    const sorted = sortedDurationOptions(t); // longest first
+    const longestSeconds = sorted[0].seconds;
+    runner.phase = "live";
+    setRunnerPhaseUI();
+    runner.phaseEndTime = performance.now() + longestSeconds * 1000;
+    let elapsedMs = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      const offsetMs = (longestSeconds - sorted[i].seconds) * 1000;
+      const gapMs = offsetMs - elapsedMs;
+      if (gapMs > 0) {
+        await wait(gapMs, token);
+        if (token.cancelled) return;
+        elapsedMs += gapMs;
+      }
+      AudioEngine.startBeep();
+      const stillRunning = sorted.slice(0, i + 1).map(o => o.label).join(" and ");
+      $("runner-sub").textContent = `${stillRunning} both running — finishing together`;
+    }
+    const remainingMs = longestSeconds * 1000 - elapsedMs;
+    if (remainingMs > 0) {
+      await wait(remainingMs, token);
+      if (token.cancelled) return;
+    }
+    runner.phaseEndTime = null;
+    AudioEngine.ceaseFireBeep();
+    finishUnit();
+    return;
+  }
   if (t.type === "single") {
     runner.phase = "live";
     setRunnerPhaseUI();

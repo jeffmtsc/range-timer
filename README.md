@@ -25,7 +25,7 @@ This app is a set of static files (HTML/CSS/JS) — it needs to be hosted somewh
 - **Home screen** — pick a course of fire.
 - **Course screen** — shows the summary, the full Range Officer script (tap to expand), and the list of matches/practices in order. Tap a match to open the timer; tap the pencil to edit it.
 - **Timer screen**:
-  1. Pick the duration variant if there's more than one (e.g. GRSB 20s vs GRCF 30s), then tap **BEGIN**.
+  1. If the match has two duration options (e.g. GRSB 20s / GRCF 30s), both run automatically — this is not a pick-one choice. Tap **BEGIN** once: the longer one (GRCF) starts on the first beep, and the shorter one (GRSB) starts later on its own second beep, timed so both finish together on the single cease-fire beep. The screen shows both while running.
   2. Read each line aloud as it appears — a line is generated automatically for the match (name, distance, time/appearances), followed by your competition's standard range commands. Tap **NEXT** to move through them.
   3. The last line is **STANDBY** — tapping it starts the fixed delay (5 seconds by default, set in Settings), then the start beep fires automatically.
   4. The clock runs for a single timed string, or steps through target-up/target-down "appearances" with their own beeps for turning-target strings. If the match has more than one string or repeat attempt, finishing one just shows a **RELOAD** pause (tap BEGIN to go again) — you stay at the same position, no cease-fire needed yet.

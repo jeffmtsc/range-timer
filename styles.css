@@ -258,6 +258,14 @@ body.sunlight-mode .duration-picker button.selected { color: #ffffff; }
   border-color: var(--accent);
   font-weight: 700;
 }
+.duration-chip {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
 
 .runner-controls {
   display: flex;
