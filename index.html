@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c8102e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Range Timer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ HOME / LIBRARY SCREEN ============ -->
+<section id="screen-home" class="screen active">
+  <header class="topbar">
+    <h1>Range Timer</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-settings" aria-label="Settings">&#9881;</button>
+    </div>
+  </header>
+  <div class="scroll-area">
+    <div id="competition-list" class="card-list"></div>
+    <button class="btn btn-secondary btn-block" id="btn-new-competition">+ New Course of Fire</button>
+    <button class="btn btn-ghost btn-block" id="btn-import">Import JSON</button>
+    <input type="file" id="import-file-input" accept="application/json" hidden>
+  </div>
+</section>
+
+<!-- ============ COMPETITION DETAIL SCREEN ============ -->
+<section id="screen-competition" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-comp-back" aria-label="Back">&#8592;</button>
+    <h1 id="comp-title">Competition</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-comp-edit" aria-label="Edit">&#9998;</button>
+      <button class="icon-btn" id="btn-comp-export" aria-label="Export JSON">&#8615;</button>
+    </div>
+  </header>
+  <div class="scroll-area">
+    <div class="comp-summary" id="comp-summary"></div>
+
+    <details class="ro-script-panel">
+      <summary>Range Officer script</summary>
+      <ol id="ro-script-list" class="ro-script-list"></ol>
+      <p id="comp-extra-note" class="extra-note"></p>
+    </details>
+
+    <div id="detail-list" class="detail-list"></div>
+
+    <button class="btn btn-secondary btn-block" id="btn-add-detail">+ Add Match / Practice</button>
+  </div>
+</section>
+
+<!-- ============ RUNNER SCREEN (full-screen timer) ============ -->
+<section id="screen-runner" class="screen screen-runner">
+  <div class="runner-topbar">
+    <button class="icon-btn" id="btn-runner-back" aria-label="Exit">&#10005;</button>
+    <div class="runner-heading">
+      <div id="runner-match" class="runner-match">Match 1</div>
+      <div id="runner-progress" class="runner-progress"></div>
+    </div>
+    <button class="icon-btn" id="btn-runner-info" aria-label="Details">&#8505;</button>
+  </div>
+
+  <div class="runner-body">
+    <div id="runner-status" class="runner-status">READY</div>
+    <div id="runner-clock" class="runner-clock">--</div>
+    <div id="runner-sub" class="runner-sub"></div>
+
+    <div id="runner-brief" class="runner-brief">
+      <div id="brief-line" class="brief-line"></div>
+      <div id="brief-progress" class="brief-progress"></div>
+      <button type="button" id="btn-skip-brief" class="link-btn">Skip to Standby</button>
+    </div>
+
+    <div id="runner-info-panel" class="runner-info-panel">
+      <div class="info-row"><span class="info-label">Distance</span><span id="info-distance"></span></div>
+      <div class="info-row"><span class="info-label">Start position</span><span id="info-position"></span></div>
+      <div class="info-row"><span class="info-label">Course of fire</span><span id="info-description"></span></div>
+      <div class="info-row" id="info-load-row"><span class="info-label">Load command</span><span id="info-load"></span></div>
+    </div>
+
+    <div id="duration-picker" class="duration-picker"></div>
+  </div>
+
+  <div class="runner-controls">
+    <button class="btn btn-ghost" id="btn-runner-repeat">Repeat</button>
+    <button class="btn btn-start" id="btn-runner-start">START</button>
+    <button class="btn btn-ghost" id="btn-runner-next">Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ============ EDITOR SCREEN (create / edit competition + details) ============ -->
+<section id="screen-editor" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-editor-cancel" aria-label="Cancel">&#8592;</button>
+    <h1 id="editor-title">New Course of Fire</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-editor-delete" aria-label="Delete">&#128465;</button>
+    </div>
+  </header>
+  <div class="scroll-area">
+    <form id="competition-form" class="form">
+      <label>Name<input type="text" id="f-comp-name" required placeholder="e.g. GR1020"></label>
+      <label>Code<input type="text" id="f-comp-code" placeholder="e.g. 1020"></label>
+      <label>Distances<input type="text" id="f-comp-distances" placeholder="e.g. 10, 15 & 25 metres"></label>
+      <label>Rounds required<input type="text" id="f-comp-rounds" placeholder="e.g. 60"></label>
+      <label>Max score<input type="text" id="f-comp-maxscore" placeholder="e.g. 600.060"></label>
+      <label>Estimated duration<input type="text" id="f-comp-duration" placeholder="e.g. approx. 45 minutes"></label>
+      <label>Notes<textarea id="f-comp-notes" rows="2" placeholder="Sighters info, hand use, etc."></textarea></label>
+      <label>Range Officer script<span class="hint">One command per line, in order</span>
+        <textarea id="f-comp-ro-script" rows="6" placeholder="Do you understand the Course of Fire?&#10;Eyes &amp; Ears, the range is going Live!&#10;..."></textarea>
+      </label>
+      <label>Extra note<textarea id="f-comp-extra" rows="2" placeholder="Optional footnote"></textarea></label>
+      <button type="submit" class="btn btn-primary btn-block">Save Course of Fire</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ DETAIL EDITOR SCREEN ============ -->
+<section id="screen-detail-editor" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-detaileditor-cancel" aria-label="Cancel">&#8592;</button>
+    <h1 id="detaileditor-title">New Match / Practice</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-detaileditor-delete" aria-label="Delete">&#128465;</button>
+    </div>
+  </header>
+  <div class="scroll-area">
+    <form id="detail-form" class="form">
+      <label>Match label<input type="text" id="f-d-match" placeholder="e.g. Match 1" required></label>
+      <label>Practice label (optional)<input type="text" id="f-d-practice" placeholder="e.g. Practice 1"></label>
+      <label>Distance<input type="text" id="f-d-distance" placeholder="e.g. 25 metres"></label>
+      <label>Start position<input type="text" id="f-d-position" placeholder="e.g. Standing unsupported"></label>
+      <label>Course of fire description<textarea id="f-d-description" rows="2" placeholder="e.g. 12 shots in 90 seconds"></textarea></label>
+      <label>Load command override (optional)<input type="text" id="f-d-loadcmd" placeholder="Leave blank to use the competition default"></label>
+
+      <label>Timing type
+        <select id="f-d-timing-type">
+          <option value="single">Single timed string</option>
+          <option value="appearances">Appearances (turning target)</option>
+        </select>
+      </label>
+
+      <div id="fields-single">
+        <label>Duration option(s) <span class="hint">label:seconds, one per line. e.g. "GRSB:20" — most details have just one, e.g. "Match 2:90"</span>
+          <textarea id="f-d-single-durations" rows="2" placeholder="Match 1:30"></textarea>
+        </label>
+        <label class="checkbox-row"><input type="checkbox" id="f-d-sighters"> This is an unlimited/sighters period</label>
+      </div>
+
+      <div id="fields-appearances" hidden>
+        <label>Number of strings<input type="number" id="f-d-strings" min="1" value="1"></label>
+        <label>Appearances per string<input type="number" id="f-d-app-count" min="1" value="6"></label>
+        <label>Exposure (target up) seconds<input type="number" id="f-d-exposure" min="1" value="2"></label>
+        <label>Interval (target down) seconds<input type="number" id="f-d-interval" min="0" value="5"></label>
+        <label>Shots per appearance<input type="number" id="f-d-shots-per-app" min="1" value="1"></label>
+      </div>
+
+      <label>Repeat count <span class="hint">e.g. 2 if the detail is "shot twice"</span>
+        <input type="number" id="f-d-repeat" min="1" value="1">
+      </label>
+      <label class="checkbox-row"><input type="checkbox" id="f-d-scorechange"> Show "Score &amp; Change Targets" after this detail</label>
+
+      <button type="submit" class="btn btn-primary btn-block">Save</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ SETTINGS SCREEN ============ -->
+<section id="screen-settings" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-settings-back" aria-label="Back">&#8592;</button>
+    <h1>Settings</h1>
+    <div class="topbar-actions"></div>
+  </header>
+  <div class="scroll-area">
+    <form class="form" id="settings-form">
+      <label>Standby delay before start beep (seconds)
+        <input type="number" id="s-standby-delay" min="0" max="15" step="0.5" value="5">
+      </label>
+      <label class="checkbox-row"><input type="checkbox" id="s-random-jitter"> Add random jitter (0&ndash;2s) to standby delay</label>
+      <label>Beep volume
+        <input type="range" id="s-volume" min="0" max="1" step="0.05" value="0.9">
+      </label>
+      <button type="button" class="btn btn-secondary btn-block" id="btn-test-beeps">Test beeps</button>
+      <label class="checkbox-row"><input type="checkbox" id="s-keep-awake" checked> Keep screen on while running</label>
+      <label class="checkbox-row"><input type="checkbox" id="s-sunlight-mode"> Sunlight mode (white background, extra contrast)</label>
+      <label class="checkbox-row"><input type="checkbox" id="s-show-ro-script" checked> Walk through RO script before first detail of a session</label>
+    </form>
+    <div class="settings-footer">
+      <p class="hint">Range Timer works fully offline once installed. Add more courses of fire any time with "+ New Course of Fire" or "Import JSON" on the home screen.</p>
+    </div>
+  </div>
+</section>
+
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body" class="modal-body"></div>
+    <button class="btn btn-primary btn-block" id="modal-btn">Continue</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="data.js"></script>
+<script src="storage.js"></script>
+<script src="audio.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
