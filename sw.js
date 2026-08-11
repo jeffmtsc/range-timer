@@ -2,7 +2,7 @@
    offline once it has been loaded (and thus installed) once. Bump CACHE_NAME
    whenever app files change so returning users pick up the update. */
 
-const CACHE_NAME = "range-timer-v13";
+const CACHE_NAME = "range-timer-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -14,7 +14,8 @@ const APP_SHELL = [
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-512-maskable.png"
+  "./icon-512-maskable.png",
+  "./watermark.png"
 ];
 
 self.addEventListener("install", (event) => {
