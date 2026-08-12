@@ -3,6 +3,7 @@
 const Storage = (() => {
   const KEY_COMPETITIONS = "rt_competitions_v1";
   const KEY_SETTINGS = "rt_settings_v1";
+  const KEY_ADMIN_MODE = "rt_admin_mode_v1";
 
   const DEFAULT_SETTINGS = {
     standbyDelaySeconds: 5,
@@ -63,5 +64,23 @@ const Storage = (() => {
     return prefix + "-" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
   }
 
-  return { loadCompetitions, saveCompetitions, loadSettings, saveSettings, uid, DEFAULT_SETTINGS };
+  // Admin Mode gates the editing UI (new/edit/delete competitions and
+  // matches, import JSON) behind a simple shared password, so bored RSOs
+  // can't accidentally reshape a course of fire between matches. It's a
+  // convenience lock, not real security — persisted across sessions so
+  // whoever unlocks it for the day doesn't have to re-enter the password
+  // every time the app is reopened.
+  function loadAdminMode() {
+    try {
+      return localStorage.getItem(KEY_ADMIN_MODE) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function saveAdminMode(enabled) {
+    localStorage.setItem(KEY_ADMIN_MODE, enabled ? "1" : "0");
+  }
+
+  return { loadCompetitions, saveCompetitions, loadSettings, saveSettings, loadAdminMode, saveAdminMode, uid, DEFAULT_SETTINGS };
 })();

@@ -20,13 +20,19 @@
   <header class="topbar">
     <h1>Range Timer</h1>
     <div class="topbar-actions">
-      <button class="icon-btn" id="btn-settings" aria-label="Settings">&#9881;</button>
+      <div class="dropdown" id="home-menu-wrap">
+        <button class="icon-btn" id="btn-settings" aria-label="Menu" aria-haspopup="true">&#9881;</button>
+        <div class="dropdown-menu" id="home-menu">
+          <button type="button" class="dropdown-item" id="menu-settings">Settings</button>
+          <button type="button" class="dropdown-item" id="menu-admin">Enable Admin Mode</button>
+        </div>
+      </div>
     </div>
   </header>
   <div class="scroll-area">
     <div id="competition-list" class="card-list"></div>
-    <button class="btn btn-secondary btn-block" id="btn-new-competition">+ New Course of Fire</button>
-    <button class="btn btn-ghost btn-block" id="btn-import">Import JSON</button>
+    <button class="btn btn-secondary btn-block admin-only" id="btn-new-competition">+ New Course of Fire</button>
+    <button class="btn btn-ghost btn-block admin-only" id="btn-import">Import JSON</button>
     <input type="file" id="import-file-input" accept="application/json" hidden>
   </div>
 </section>
@@ -37,7 +43,7 @@
     <button class="icon-btn" id="btn-comp-back" aria-label="Back">&#8592;</button>
     <h1 id="comp-title">Competition</h1>
     <div class="topbar-actions">
-      <button class="icon-btn" id="btn-comp-edit" aria-label="Edit">&#9998;</button>
+      <button class="icon-btn admin-only" id="btn-comp-edit" aria-label="Edit">&#9998;</button>
       <button class="icon-btn" id="btn-comp-export" aria-label="Export JSON">&#8615;</button>
     </div>
   </header>
@@ -52,7 +58,7 @@
 
     <div id="detail-list" class="detail-list"></div>
 
-    <button class="btn btn-secondary btn-block" id="btn-add-detail">+ Add Match / Practice</button>
+    <button class="btn btn-secondary btn-block admin-only" id="btn-add-detail">+ Add Match / Practice</button>
   </div>
 </section>
 
@@ -194,7 +200,7 @@
       <label class="checkbox-row"><input type="checkbox" id="s-show-ro-script" checked> Walk through RO script before first detail of a session</label>
     </form>
     <div class="settings-footer">
-      <p class="hint">Range Timer works fully offline once installed. Add more courses of fire any time with "+ New Course of Fire" or "Import JSON" on the home screen.</p>
+      <p class="hint">Range Timer works fully offline once installed. Adding or editing courses of fire ("+ New Course of Fire", "Import JSON", the edit pencils) requires Admin Mode — enable it from the menu (&#9881;) on the home screen.</p>
     </div>
   </div>
 </section>
@@ -204,6 +210,21 @@
     <h2 id="modal-title"></h2>
     <div id="modal-body" class="modal-body"></div>
     <button class="btn btn-primary btn-block" id="modal-btn">Continue</button>
+  </div>
+</div>
+
+<div id="admin-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2>Admin Mode</h2>
+    <div class="modal-body">
+      <p>Enter the admin password to unlock editing (new/edit/delete courses of fire and matches, JSON import).</p>
+      <input type="password" id="admin-password-input" class="admin-password-input" placeholder="Password" autocomplete="off">
+      <p id="admin-password-error" class="admin-password-error" hidden>Incorrect password.</p>
+    </div>
+    <div class="admin-modal-actions">
+      <button type="button" class="btn btn-ghost" id="admin-modal-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="admin-modal-unlock">Unlock</button>
+    </div>
   </div>
 </div>
 

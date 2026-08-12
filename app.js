@@ -14,6 +14,11 @@
 // ---------------------------------------------------------------------
 let competitions = Storage.loadCompetitions();
 let settings = Storage.loadSettings();
+let adminMode = Storage.loadAdminMode();
+
+// Convenience lock, not real security: stops bored RSOs from idly editing
+// competitions/matches between stages. Shared password, persisted locally.
+const ADMIN_PASSWORD = "Munster";
 
 let currentCompetitionId = null;
 let currentDetailIndex = 0;
@@ -72,6 +77,46 @@ function showModal(title, bodyHtml, buttonLabel, onContinue) {
     $("modal-overlay").classList.remove("visible");
     if (onContinue) onContinue();
   };
+}
+
+// ---------------------------------------------------------------------
+// Admin Mode — gates editing (new/edit/delete competitions & matches, JSON
+// import) behind a shared password so it isn't idly changed between
+// matches. Not real security, just a convenience lock; state persists
+// across sessions via Storage so it doesn't need re-entering constantly.
+// ---------------------------------------------------------------------
+function applyAdminModeUI() {
+  document.body.classList.toggle("admin-mode", adminMode);
+  $("menu-admin").textContent = adminMode ? "Disable Admin Mode" : "Enable Admin Mode";
+}
+
+function closeHomeMenu() {
+  $("home-menu").classList.remove("visible");
+}
+
+function openAdminPasswordPrompt() {
+  $("admin-password-input").value = "";
+  $("admin-password-error").hidden = true;
+  $("admin-modal-overlay").classList.add("visible");
+  $("admin-password-input").focus();
+}
+
+function closeAdminPasswordPrompt() {
+  $("admin-modal-overlay").classList.remove("visible");
+}
+
+function attemptAdminUnlock() {
+  if ($("admin-password-input").value === ADMIN_PASSWORD) {
+    adminMode = true;
+    Storage.saveAdminMode(true);
+    applyAdminModeUI();
+    closeAdminPasswordPrompt();
+    toast("Admin Mode enabled");
+  } else {
+    $("admin-password-error").hidden = false;
+    $("admin-password-input").value = "";
+    $("admin-password-input").focus();
+  }
 }
 
 function formatMinSec(totalSeconds) {
@@ -158,7 +203,7 @@ function renderCompetitionScreen() {
         <div class="detail-title">${esc(label)}</div>
         <div class="detail-sub">${esc(d.distance || "")}${d.distance ? " · " : ""}${esc(summarizeTiming(d))}</div>
       </div>
-      <button class="detail-edit-btn" aria-label="Edit">&#9998;</button>
+      <button class="detail-edit-btn admin-only" aria-label="Edit">&#9998;</button>
     `;
     row.querySelector(".detail-main").addEventListener("click", () => openRunner(comp.id, idx));
     row.querySelector(".detail-edit-btn").addEventListener("click", (e) => {
@@ -732,6 +777,10 @@ function exitRunner() {
 // Competition / detail editors
 // ---------------------------------------------------------------------
 function openCompetitionEditor(id) {
+  // Defense in depth: the entry points (pencil icon, +New button) are
+  // already hidden for normal users via the .admin-only CSS class, but
+  // guard here too so nothing can reach the editor without Admin Mode.
+  if (!adminMode) return;
   editingCompetitionId = id;
   const comp = id ? findCompetition(id) : null;
   $("editor-title").textContent = comp ? "Edit Course of Fire" : "New Course of Fire";
@@ -750,6 +799,7 @@ function openCompetitionEditor(id) {
 
 function saveCompetitionForm(e) {
   e.preventDefault();
+  if (!adminMode) return;
   const isNew = !editingCompetitionId;
   const comp = isNew ? { id: Storage.uid("comp"), details: [] } : findCompetition(editingCompetitionId);
   comp.name = $("f-comp-name").value.trim() || "Untitled";
@@ -774,7 +824,7 @@ function saveCompetitionForm(e) {
 }
 
 function deleteCurrentCompetition() {
-  if (!editingCompetitionId) return;
+  if (!adminMode || !editingCompetitionId) return;
   if (!confirm("Delete this course of fire? This cannot be undone.")) return;
   competitions = competitions.filter(c => c.id !== editingCompetitionId);
   Storage.saveCompetitions(competitions);
@@ -783,6 +833,8 @@ function deleteCurrentCompetition() {
 }
 
 function openDetailEditor(compId, detailId) {
+  // Defense in depth — see the matching comment in openCompetitionEditor.
+  if (!adminMode) return;
   editingCompetitionId = compId;
   editingDetailId = detailId;
   const comp = findCompetition(compId);
@@ -845,6 +897,7 @@ function parseDurationOptions(text) {
 
 function saveDetailForm(e) {
   e.preventDefault();
+  if (!adminMode) return;
   const comp = findCompetition(editingCompetitionId);
   const isNew = !editingDetailId;
   const detail = isNew ? { id: Storage.uid("detail") } : comp.details.find(d => d.id === editingDetailId);
@@ -885,7 +938,7 @@ function saveDetailForm(e) {
 }
 
 function deleteCurrentDetail() {
-  if (!editingDetailId) return;
+  if (!adminMode || !editingDetailId) return;
   if (!confirm("Delete this match/practice?")) return;
   const comp = findCompetition(editingCompetitionId);
   comp.details = comp.details.filter(d => d.id !== editingDetailId);
@@ -912,6 +965,7 @@ function exportCompetition() {
 }
 
 function importJsonFile(file) {
+  if (!adminMode) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
@@ -982,7 +1036,34 @@ function wireSettings() {
 // Wiring
 // ---------------------------------------------------------------------
 function wireEvents() {
-  $("btn-settings").addEventListener("click", () => { renderSettings(); showScreen("screen-settings"); });
+  $("btn-settings").addEventListener("click", (e) => {
+    e.stopPropagation();
+    $("home-menu").classList.toggle("visible");
+  });
+  document.addEventListener("click", (e) => {
+    if (!$("home-menu-wrap").contains(e.target)) closeHomeMenu();
+  });
+  $("menu-settings").addEventListener("click", () => {
+    closeHomeMenu();
+    renderSettings();
+    showScreen("screen-settings");
+  });
+  $("menu-admin").addEventListener("click", () => {
+    closeHomeMenu();
+    if (adminMode) {
+      adminMode = false;
+      Storage.saveAdminMode(false);
+      applyAdminModeUI();
+      toast("Admin Mode disabled");
+    } else {
+      openAdminPasswordPrompt();
+    }
+  });
+  $("admin-modal-cancel").addEventListener("click", closeAdminPasswordPrompt);
+  $("admin-modal-unlock").addEventListener("click", attemptAdminUnlock);
+  $("admin-password-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") attemptAdminUnlock();
+  });
   $("btn-settings-back").addEventListener("click", () => showScreen("screen-home"));
 
   $("btn-new-competition").addEventListener("click", () => openCompetitionEditor(null));
@@ -1025,6 +1106,7 @@ function wireEvents() {
 // ---------------------------------------------------------------------
 function init() {
   wireEvents();
+  applyAdminModeUI();
   renderHome();
   renderSettings();
   showScreen("screen-home");
