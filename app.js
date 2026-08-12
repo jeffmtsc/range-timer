@@ -128,6 +128,20 @@ function formatMinSec(totalSeconds) {
   return `${totalSeconds} second${totalSeconds === 1 ? "" : "s"}`;
 }
 
+// Compact digit form for the big glanceable clock display (e.g. "2:45",
+// "45s") — used on the ready screen so it matches the same short format the
+// running countdown uses in tickClock(). formatMinSec()'s worded form
+// ("2 minutes 45 seconds") is far too wide at the clock's large font size on
+// a phone screen, so it's reserved for the smaller sub-line text instead.
+function formatClockDigits(totalSeconds) {
+  totalSeconds = Math.round(totalSeconds);
+  if (totalSeconds >= 60) {
+    const m = Math.floor(totalSeconds / 60), s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+  return `${totalSeconds}s`;
+}
+
 function wait(ms, token) {
   return new Promise(resolve => {
     const id = setTimeout(resolve, ms);
@@ -458,10 +472,12 @@ function setRunnerPhaseUI() {
       statusEl.textContent = "READY";
       clockEl.textContent = runner.detail.timing.type === "appearances"
         ? `${runner.detail.timing.appearancesPerString}×${runner.detail.timing.exposureSeconds}s`
-        : formatMinSec(runner.selectedSeconds);
+        : formatClockDigits(runner.selectedSeconds);
       subEl.textContent = isDualStartTiming(runner.detail.timing)
         ? "Staggered start — see below. Tap BEGIN to start the RSO briefing"
-        : "Tap BEGIN to start the RSO briefing";
+        : runner.detail.timing.type === "appearances"
+          ? "Tap BEGIN to start the RSO briefing"
+          : `${formatMinSec(runner.selectedSeconds)} — tap BEGIN to start the RSO briefing`;
       setStartButton("BEGIN", true);
       break;
     case "brief":
