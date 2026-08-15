@@ -1,4 +1,4 @@
-/* Range Timer — main application logic.
+/* MTSC Range Timer — main application logic.
    A course of fire (competition) is a list of "details" (Match/Practice).
    Each detail is run as one or more "units": a single timed string repeated
    `repeatCount` times, or one "string" per unit for an appearances/turning
@@ -40,7 +40,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
   updateInstallMenuVisibility();
-  toast("Range Timer installed");
+  toast("MTSC Range Timer installed");
 });
 
 const runner = {
@@ -146,7 +146,12 @@ function attemptAdminUnlock() {
 // already running installed/standalone.
 // ---------------------------------------------------------------------
 function isRunningStandalone() {
-  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  // The manifest declares display: "fullscreen" (not "standalone"), so an
+  // installed launch matches that media query, not "standalone" — check
+  // both so this doesn't miss the app's own actual installed display mode.
+  return window.matchMedia("(display-mode: standalone)").matches
+    || window.matchMedia("(display-mode: fullscreen)").matches
+    || window.navigator.standalone === true;
 }
 
 function updateInstallMenuVisibility() {

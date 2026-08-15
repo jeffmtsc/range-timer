@@ -1,4 +1,4 @@
-# Range Timer
+# MTSC Range Timer
 
 A course-of-fire timer for shooting competitions, built to run on Android as an installable, fully offline web app (PWA). It walks the RSO through the spoken commands for each match/string, then handles the standby delay and beeps automatically.
 

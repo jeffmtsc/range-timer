@@ -1,4 +1,4 @@
-/* Range Timer — local persistence (localStorage). Fully offline, no network calls. */
+/* MTSC Range Timer — local persistence (localStorage). Fully offline, no network calls. */
 
 const Storage = (() => {
   const KEY_COMPETITIONS = "rt_competitions_v1";

@@ -1,8 +1,8 @@
-/* Range Timer service worker — caches the whole app shell so it runs fully
+/* MTSC Range Timer service worker — caches the whole app shell so it runs fully
    offline once it has been loaded (and thus installed) once. Bump CACHE_NAME
    whenever app files change so returning users pick up the update. */
 
-const CACHE_NAME = "range-timer-v18";
+const CACHE_NAME = "range-timer-v19";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -1,4 +1,4 @@
-/* Range Timer — synthesized beep engine (Web Audio API, no audio files, fully offline)
+/* MTSC Range Timer — synthesized beep engine (Web Audio API, no audio files, fully offline)
    and screen wake-lock helper. */
 
 const AudioEngine = (() => {

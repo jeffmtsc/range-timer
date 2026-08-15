@@ -1,6 +1,6 @@
 {
-  "name": "Range Timer",
-  "short_name": "Range Timer",
+  "name": "MTSC Range Timer",
+  "short_name": "MTSC Range Timer",
   "description": "Course-of-fire timer and beep signals for shooting competitions",
   "start_url": "./index.html",
   "scope": "./",

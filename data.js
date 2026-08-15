@@ -1,5 +1,5 @@
 /*
-  Range Timer — built-in course-of-fire library
+  MTSC Range Timer — built-in course-of-fire library
   ================================================
   Schema (also used by the in-app Course of Fire editor — see editor.js):
 
