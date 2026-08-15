@@ -38,6 +38,21 @@ const Storage = (() => {
         changed = true;
       }
     }
+    // Re-sort into the canonical order defined by BUILTIN_COMPETITIONS in
+    // data.js. Without this, a phone that installed the app a while ago
+    // keeps whatever order its localStorage was first seeded with forever
+    // — reordering the array in data.js would only affect brand-new
+    // installs. Any competition that isn't one of the built-ins (added
+    // locally via the editor or JSON import) isn't in this order, so it
+    // keeps its existing relative position, sorted after all the built-ins.
+    const builtinOrder = new Map(BUILTIN_COMPETITIONS.map((c, i) => [c.id, i]));
+    const sorted = list.slice().sort((a, b) => {
+      const ai = builtinOrder.has(a.id) ? builtinOrder.get(a.id) : Infinity;
+      const bi = builtinOrder.has(b.id) ? builtinOrder.get(b.id) : Infinity;
+      return ai - bi; // stable sort — ties (e.g. two custom competitions) keep their prior relative order
+    });
+    if (sorted.some((c, i) => c !== list[i])) changed = true;
+    list = sorted;
     if (changed) saveCompetitions(list);
     return list;
   }
