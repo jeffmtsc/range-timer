@@ -25,6 +25,24 @@ let currentDetailIndex = 0;
 let editingCompetitionId = null; // for editor screens
 let editingDetailId = null;      // null => creating new detail
 
+// "Add to Home Screen" — Chrome/Android fires beforeinstallprompt once its
+// own install-eligibility heuristics are satisfied (not immediately on
+// load), so this listener has to be registered right away, at the top
+// level, rather than inside init() — otherwise an early fire could be
+// missed. preventDefault() suppresses Chrome's automatic mini-infobar so
+// the app can offer the same install action from its own menu instead.
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallMenuVisibility();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallMenuVisibility();
+  toast("Range Timer installed");
+});
+
 const runner = {
   token: null,           // cancellation token for the active async sequence
   detail: null,
@@ -116,6 +134,39 @@ function attemptAdminUnlock() {
     $("admin-password-error").hidden = false;
     $("admin-password-input").value = "";
     $("admin-password-input").focus();
+  }
+}
+
+// ---------------------------------------------------------------------
+// Add to Home Screen — offers the browser's native install prompt from the
+// same dropdown menu as Settings/Admin Mode, once the browser has actually
+// made one available (see the beforeinstallprompt listener near the top of
+// this file). Hidden entirely on browsers that never fire that event (e.g.
+// iOS Safari, or a browser without install support) and once the app is
+// already running installed/standalone.
+// ---------------------------------------------------------------------
+function isRunningStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function updateInstallMenuVisibility() {
+  $("menu-install").hidden = !deferredInstallPrompt || isRunningStandalone();
+}
+
+async function handleInstallClick() {
+  closeHomeMenu();
+  if (!deferredInstallPrompt) return;
+  // The prompt event is single-use — consume it now and hide the menu item
+  // until (if ever) the browser offers a fresh one.
+  const promptEvent = deferredInstallPrompt;
+  deferredInstallPrompt = null;
+  updateInstallMenuVisibility();
+  promptEvent.prompt();
+  try {
+    await promptEvent.userChoice;
+  } catch (e) {
+    // Some browsers reject userChoice if the prompt couldn't be shown —
+    // nothing to do, the menu item is already hidden again.
   }
 }
 
@@ -1059,6 +1110,7 @@ function wireEvents() {
   document.addEventListener("click", (e) => {
     if (!$("home-menu-wrap").contains(e.target)) closeHomeMenu();
   });
+  $("menu-install").addEventListener("click", handleInstallClick);
   $("menu-settings").addEventListener("click", () => {
     closeHomeMenu();
     renderSettings();
@@ -1123,6 +1175,7 @@ function wireEvents() {
 function init() {
   wireEvents();
   applyAdminModeUI();
+  updateInstallMenuVisibility();
   renderHome();
   renderSettings();
   showScreen("screen-home");
