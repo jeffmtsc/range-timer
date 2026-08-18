@@ -8,7 +8,7 @@ const Storage = (() => {
   const DEFAULT_SETTINGS = {
     standbyDelaySeconds: 5,
     randomJitter: false,
-    volume: 0.9,
+    volume: 1,
     keepAwake: true,
     sunlightMode: true, // default on — this app is built for use outdoors in bright daylight
     showRoScript: true
